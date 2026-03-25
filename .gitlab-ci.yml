@@ -1,0 +1,31 @@
+image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+
+stages:
+  - lint
+  - test
+  - containerize
+
+variables:
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+
+cache:
+  paths:
+    - .cache/uv
+
+include:
+  - remote: https://gitlab.com/TIBHannover/gitlab-ci-templates/raw/master/templates/Docker.gitlab-ci.yml
+
+before_script:
+  - uv sync --frozen
+
+lint:
+  stage: lint
+  script:
+    - uv run ruff check server tests
+    - uv run ruff format --check server tests
+
+test:
+  stage: test
+  script:
+    - uv run pytest tests/ -v --cov=server --cov-report=term
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
