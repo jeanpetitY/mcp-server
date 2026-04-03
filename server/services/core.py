@@ -74,7 +74,7 @@ class COREService:
                 {
                     "id": item.get("id"),
                     "title": item.get("title"),
-                    "abstract": "abstract",
+                    "abstract": item.get("abstract"),
                     "doi": item.get("doi"),
                     "year": item.get("yearPublished") or item.get("year"),
                     "authors": item.get("authors", []),

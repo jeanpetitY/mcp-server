@@ -108,3 +108,5 @@ Regarding the reasoning behind points 1, 2, and 3:
 - Moving the logic into a dedicated SumService follows a service-oriented approach, which keeps tools thin and reusable, and makes testing and future extensions easier.
 
 That was the main intention behind these suggestions.
+
+uv add langchain langchain-openai langchain-mcp-adapter
