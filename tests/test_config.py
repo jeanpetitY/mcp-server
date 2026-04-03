@@ -3,15 +3,17 @@ import importlib
 from fastmcp import FastMCP
 
 from server.app import create_app
+from server.core import get_settings
 
 
 def test_create_app_returns_fastmcp():
     app = create_app()
     assert isinstance(app, FastMCP)
-    assert app.name == "tib-mcp"
+    assert app.name == get_settings().server_name
 
 
 def test_default_env_values(monkeypatch):
+    monkeypatch.delenv("MCP_SERVER_NAME", raising=False)
     monkeypatch.delenv("MCP_TRANSPORT", raising=False)
     monkeypatch.delenv("MCP_HOST", raising=False)
     monkeypatch.delenv("MCP_PORT", raising=False)
@@ -28,6 +30,7 @@ def test_default_env_values(monkeypatch):
 
 
 def test_env_overrides(monkeypatch):
+    monkeypatch.setenv("MCP_SERVER_NAME", "tib-mcp")
     monkeypatch.setenv("MCP_TRANSPORT", "sse")
     monkeypatch.setenv("MCP_HOST", "0.0.0.0")
     monkeypatch.setenv("MCP_PORT", "9090")

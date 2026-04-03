@@ -29,7 +29,14 @@ uv run pre-commit install
 
 ## Architecture
 
-This is a [FastMCP](https://gofastmcp.com/) server exposing scholarly tools via the Model Context Protocol. The entry point is `main.py`, which delegates to `server/main.py` for config and `server/app.py` for the app factory.
+This is a [FastMCP](https://gofastmcp.com/) server exposing scholarly tools via the Model Context Protocol.
+
+- `main.py` is the default runtime entry point.
+- `server/app.py` provides the app factory (`create_app`) and registers tools.
+- `server/core/` contains settings and transport normalization.
+- `server/services/` contains business logic used by tools.
+- `server/tools/` defines and mounts MCP tool sub-servers.
+- `server/utils/` contains runtime helpers (for transport-specific kwargs).
 
 ### Tool sub-server pattern
 
@@ -40,9 +47,11 @@ Each tool lives in its own file under `server/tools/` and creates its own `FastM
 
 ### Adding a new tool
 
-1. Create `server/tools/my_tool.py` with a `FastMCP("my_tool")` instance and decorated functions.
-2. Mount it in `server/tools/__init__.py`: `app.mount(my_tool_server, namespace="my_tool")`.
-3. Add unit tests in `tests/tools/test_my_tool.py`; update `tests/test_contract.py` (tool count, metadata) and `tests/test_integration.py`.
+1. Create service logic in `server/services/my_tool.py` (business logic only).
+2. Export the service from `server/services/__init__.py`.
+3. Create `server/tools/my_tool.py` with a `FastMCP("my_tool")` sub-server and `@server.tool()` functions that call the service.
+4. Mount it in `server/tools/__init__.py`: `app.mount(my_tool_server, namespace="my_tool")`.
+5. Add unit tests in `tests/tools/test_my_tool.py`; update `tests/test_contract.py` (tool count, metadata) and `tests/test_integration.py`.
 
 ### Configuration
 
@@ -50,12 +59,13 @@ All runtime config comes from environment variables (loaded via `python-dotenv` 
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `MCP_SERVER_NAME` | `TIB MCP Server` | FastMCP app name |
 | `MCP_TRANSPORT` | `streamable-http` | `stdio`, `http`, `sse`, or `streamable-http` |
 | `MCP_HOST` | `127.0.0.1` | Bind address |
 | `MCP_PORT` | `8000` | Port |
 | `MCP_LOG_LEVEL` | `INFO` | Log verbosity |
 
-Use `stdio` transport for direct AI client integrations (Claude Desktop, VS Code); use `streamable-http` for networked/remote access (also the Docker default on `0.0.0.0:8000`).
+Use `stdio` transport for direct AI client integrations (Claude Desktop, VS Code); use `streamable-http` for networked/remote access (also the Docker default on `0.0.0.0:8000`). The app also normalizes accepted aliases such as `streamable_https`, `streamable_http`, and `streamable-https`.
 
 ### Test categories
 
@@ -66,5 +76,5 @@ Use `stdio` transport for direct AI client integrations (Claude Desktop, VS Code
 
 Shared fixtures (`mcp_app`, `mcp_client`) live in `tests/conftest.py`. All tests are async; `asyncio_mode = "auto"` is set in `pyproject.toml`.
 
-## Developement standards
+## Development standards
 - If you want to add or delete a dependency, use `uv add <dependency>` or `uv remove <dependency>` to ensure `uv.lock` is updated correctly. Never edit `uv.lock` and `pyproject.toml` manually.

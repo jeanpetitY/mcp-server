@@ -26,16 +26,28 @@ uv run python main.py
 
 By default the server starts in **streamable-http** mode, which is suitable for networked or remote access. For local MCP client integrations (e.g. Claude Desktop, VS Code with Copilot), you can switch to **stdio** mode.
 
+## Architecture
+
+The runtime is split into small layers:
+
+- `main.py` and `server/main.py` are entry points that start the FastMCP server.
+- `server/app.py` builds the application instance (`create_app`) and registers tools.
+- `server/core/` contains environment-based configuration (`Settings`, transport normalization).
+- `server/tools/` exposes MCP tools and mounts them by namespace.
+- `server/services/` contains business logic used by tools.
+- `server/utils/` contains runtime helpers (for example transport-specific run kwargs).
+
 ## Configuration
 
 All configuration is done through environment variables. A `.env` file in the project root is automatically loaded on startup via [python-dotenv](https://pypi.org/project/python-dotenv/). See `.env.example` for a documented template.
 
 | Variable | Description | Default | Valid Values |
 |---|---|---|---|
-| `MCP_TRANSPORT` | Transport protocol | `streamable-http` | `stdio`, `http`, `sse`, `streamable-http` |
-| `MCP_HOST` | Bind address (non-stdio transports) | `127.0.0.1` | Any valid host/IP |
-| `MCP_PORT` | Port number (non-stdio transports) | `8000` | Any valid port |
-| `MCP_LOG_LEVEL` | Logging verbosity | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `MCP_SERVER_NAME` | Server Name     | `TIB MCP Server` | any name |
+| `MCP_TRANSPORT`   | Transport protocol | `streamable-http` | `stdio`, `http`, `sse`, `streamable-http` |
+| `MCP_HOST`        | Bind address (non-stdio transports) | `127.0.0.1` | Any valid host/IP |
+| `MCP_PORT`        | Port number (non-stdio transports) | `8000` | Any valid port |
+| `MCP_LOG_LEVEL`   | Logging verbosity | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 
 ## Running the Server
 
@@ -74,6 +86,23 @@ MCP_TRANSPORT=streamable-http uv run python main.py
 ```
 
 The server will be available at `http://127.0.0.1:8000/mcp`.
+
+## Try It with MCP Inspector
+
+You can play around with the server using [`@modelcontextprotocol/inspector`](https://www.npmjs.com/package/@modelcontextprotocol/inspector):
+
+```bash
+# Inspect via stdio (launches this server as a subprocess)
+npx @modelcontextprotocol/inspector uv run python main.py
+```
+
+If your server is already running in `streamable-http` mode:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+Then connect to `http://127.0.0.1:8000/mcp` from the Inspector UI.
 
 ## Docker
 
@@ -118,25 +147,42 @@ uv run pytest -v
 
 ```
 tib-mcp/
-├── main.py                  # Entry point — starts the MCP server
-├── pyproject.toml            # Project metadata, dependencies, and tool config
-├── uv.lock                  # Deterministic dependency lock file
-├── Dockerfile               # Production container build
-├── .env.example             # Documented environment variable template
-├── .pre-commit-config.yaml  # Pre-commit hooks (Ruff linter & formatter)
+├── main.py                   # Root entry point for running the MCP server
 ├── server/
-│   ├── main.py              # Loads config from environment, creates app instance
-│   ├── app.py               # App factory — creates FastMCP and registers tools
+│   ├── __init__.py
+│   ├── app.py                # App factory (create_app / get_application)
+│   ├── main.py               # Server module entry point + exported runtime constants
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── config.py         # Environment config + transport normalization
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── sum.py            # Sum service logic
+│   ├── tools/
+│   │   ├── __init__.py       # Tool mounting (register_tools)
+│   │   └── sum.py            # Sum MCP sub-server and tool definition
+│   └── utils/
+│       ├── __init__.py
+│       └── runtime.py        # Runtime helpers (run kwargs per transport)
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py           # Shared fixtures (mcp_app, mcp_client)
+│   ├── test_config.py        # Configuration behavior tests
+│   ├── test_contract.py      # Tool metadata/schema contract tests
+│   ├── test_integration.py   # MCP client/server integration tests
 │   └── tools/
-│       ├── __init__.py      # Tool registration — mounts sub-servers onto the app
-│       └── sum.py           # Example tool: adds two numbers
-└── tests/
-    ├── conftest.py          # Shared fixtures (mcp_app, mcp_client)
-    ├── test_config.py       # Configuration tests
-    ├── test_contract.py     # Tool schema/contract tests
-    ├── test_integration.py  # Integration tests
-    └── tools/
-        └── test_sum.py      # Unit tests for the sum tool
+│       ├── __init__.py
+│       └── test_sum.py       # Unit tests for sum behavior
+├── pyproject.toml            # Dependencies + tool configuration
+├── uv.lock                   # Dependency lock file
+├── Dockerfile                # Container image definition
+├── .dockerignore
+├── .env.example              # Environment variable template
+├── .pre-commit-config.yaml   # Pre-commit hooks (Ruff + checks)
+├── AGENTS.md                 # Repository instructions for coding agents
+├── CLAUDE.md
+├── LICENSE
+└── README.md
 ```
 
 ## Development
@@ -157,15 +203,33 @@ uv run pre-commit run --all-files
 
 ### Adding a New Tool
 
-Tools follow a sub-server pattern. Use `server/tools/sum.py` as a reference:
+Tools in this project follow the same pattern as `sum`: a service layer for logic, and a FastMCP sub-server for exposure.
 
-**1. Create a new tool file** in `server/tools/`:
+1. **Create the service** in `server/services/my_tool.py`:
 
 ```python
-# server/tools/my_tool.py
+class MyToolService:
+    def do_something(self, param: str) -> str:
+        return param.strip().upper()
+```
+
+2. **Export the service** in `server/services/__init__.py`:
+
+```python
+from server.services.my_tool import MyToolService
+
+__all__ = ["SumService", "MyToolService"]
+```
+
+3. **Create the MCP tool sub-server** in `server/tools/my_tool.py`:
+
+```python
 from fastmcp import FastMCP
 
+from server.services import MyToolService
+
 server = FastMCP("my_tool")
+my_tool_service = MyToolService()
 
 
 @server.tool()
@@ -178,15 +242,19 @@ def do_something(param: str) -> str:
     Returns:
         Description of the return value.
     """
-    return f"Result: {param}"
+    return my_tool_service.do_something(param)
+
 ```
 
-Type hints define the tool's input schema and docstrings become the tool description — both are exposed to MCP clients.
+Type hints define the input schema, and the docstring is exposed to MCP clients as tool description.
 
-**2. Register it** in `server/tools/__init__.py`:
+4. **Mount the tool** in `server/tools/__init__.py`:
 
 ```python
+from fastmcp import FastMCP
+
 from server.tools.my_tool import server as my_tool_server
+from server.tools.sum import server as sum_server
 
 
 def register_tools(app: FastMCP) -> None:
@@ -194,9 +262,19 @@ def register_tools(app: FastMCP) -> None:
     app.mount(my_tool_server, namespace="my_tool")
 ```
 
-The tool will be discoverable as `my_tool_do_something` (namespace + function name).
+With namespace mounting, this tool is discoverable as `my_tool_do_something`.
 
-**3. Add tests** in `tests/tools/test_my_tool.py` for unit tests, and update `tests/test_contract.py` and `tests/test_integration.py` as needed.
+5. **Add/update tests**:
+- Unit test in `tests/tools/test_my_tool.py` (direct function/service behavior).
+- Contract test in `tests/test_contract.py` (tool name, description, schema, tool count).
+- Integration test in `tests/test_integration.py` (call the tool via MCP client).
+
+Then run:
+
+```bash
+uv run pytest
+uv run pre-commit run --all-files
+```
 
 ## License
 

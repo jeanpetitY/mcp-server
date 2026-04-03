@@ -1,6 +1,8 @@
 from fastmcp import FastMCP
+from server.services import SumService
 
 server = FastMCP("sum")
+sum_service = SumService()
 
 
 @server.tool()
@@ -14,4 +16,4 @@ def add(a: float, b: float) -> float:
     Returns:
         The sum of a and b.
     """
-    return a + b
+    return sum_service.add(a, b)

@@ -1,14 +1,15 @@
-import os
-
-from dotenv import load_dotenv
-
 from server.app import create_app
+from server.core import get_settings
+from server.utils import build_run_kwargs
 
-load_dotenv()
+_settings = get_settings()
+TRANSPORT = _settings.fastmcp_transport
+HOST = _settings.host
+PORT = _settings.port
+LOG_LEVEL = _settings.log_level
 
 mcp = create_app()
 
-TRANSPORT = os.getenv("MCP_TRANSPORT", "streamable-http")
-HOST = os.getenv("MCP_HOST", "127.0.0.1")
-PORT = int(os.getenv("MCP_PORT", "8000"))
-LOG_LEVEL = os.getenv("MCP_LOG_LEVEL", "INFO")
+
+def run() -> None:
+    mcp.run(transport=TRANSPORT, **build_run_kwargs(_settings))
