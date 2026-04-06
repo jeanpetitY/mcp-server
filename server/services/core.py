@@ -33,7 +33,7 @@ class COREService:
         return []
     
     def fetch_papers(
-        self, authors: Optional[List[str]], paper_title: Optional[str], doi: Optional[str]
+        self, authors: Optional[List[str]] = None, paper_title: Optional[str] = None, doi: Optional[str] = None
     ) -> list:
         query = self._build_query(authors, paper_title, doi)
         if not query:

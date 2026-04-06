@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import os
 
@@ -73,7 +71,7 @@ def main() -> None:
             try:
                 tool_names = _list_tools(model=model, temperature=temperature)
                 st.code(tool_names, language="text")
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:
                 st.error(f"Unable to list tools: {exc}")
 
         st.markdown("---")

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 import warnings
 from collections.abc import AsyncIterator, Sequence
@@ -10,9 +8,9 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
-from langchain.agents import create_agent  # noqa: E402
-from langchain_mcp_adapters.client import MultiServerMCPClient  # noqa: E402
-from langchain_openai import ChatOpenAI  # noqa: E402
+from langchain.agents import create_agent
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_openai import ChatOpenAI
 
 DEFAULT_MCP_URL = "http://127.0.0.1:8000/mcp"
 DEFAULT_MODEL = "gpt-4o-mini"
