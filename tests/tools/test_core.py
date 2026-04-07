@@ -4,10 +4,10 @@ from server.tools.core import fetch_papers
 def test_fetch_papers_returns_service_result(monkeypatch):
     expected = [{"id": 1, "title": "Test Paper"}]
 
-    def fake_fetch_papers(author_name, paper_title, affiliation):
-        assert author_name == "Ada Lovelace"
+    def fake_fetch_papers(authors, paper_title, doi):
+        assert authors == ["Ada Lovelace"]
         assert paper_title == "Analytical Engine"
-        assert affiliation == "Babbage Lab"
+        assert doi is None
         return expected
 
     monkeypatch.setattr(
@@ -16,21 +16,20 @@ def test_fetch_papers_returns_service_result(monkeypatch):
     )
 
     result = fetch_papers(
-        author_name="Ada Lovelace",
+        authors=["Ada Lovelace"],
         paper_title="Analytical Engine",
-        affiliation="Babbage Lab",
     )
 
     assert result == expected
 
 
-def test_fetch_papers_default_affiliation_is_none(monkeypatch):
+def test_fetch_papers_doi_is_forwarded(monkeypatch):
     expected = []
 
-    def fake_fetch_papers(author_name, paper_title, affiliation):
-        assert author_name == "Alan Turing"
-        assert paper_title == "Computing Machinery and Intelligence"
-        assert affiliation is None
+    def fake_fetch_papers(authors, paper_title, doi):
+        assert authors is None
+        assert paper_title is None
+        assert doi == "10.1000/test"
         return expected
 
     monkeypatch.setattr(
@@ -38,9 +37,6 @@ def test_fetch_papers_default_affiliation_is_none(monkeypatch):
         fake_fetch_papers,
     )
 
-    result = fetch_papers(
-        author_name="Alan Turing",
-        paper_title="Computing Machinery and Intelligence",
-    )
+    result = fetch_papers(doi="10.1000/test")
 
     assert result == expected

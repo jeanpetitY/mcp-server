@@ -6,7 +6,7 @@ server = FastMCP("core")
 core_service = COREService()
 
 @server.tool()
-def fetch_papers(authors: Optional[List[str]], paper_title: Optional[str] = None, doi: Optional[str] = None) -> list:
+def fetch_papers(authors: Optional[List[str]] = None, paper_title: Optional[str] = None, doi: Optional[str] = None) -> list:
     """Search papers in CORE using authors, title, and/or DOI.
 
     At least one filter should be provided (`authors`, `paper_title`, or `doi`).
